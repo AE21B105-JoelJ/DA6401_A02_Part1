@@ -11,6 +11,16 @@ from lightning.pytorch import Trainer
 from torchvision.datasets import MNIST
 from torchvision import transforms
 from torch.utils.data import DataLoader, random_split
+from lightning.pytorch.loggers import WandbLogger
+from torchmetrics import Precision
+
+# Initializing wandb logger #
+wandb_logger = WandbLogger(
+    project="A1_DA6401_DL",       
+    name="Check",        
+    log_model="all",            
+    save_dir="./wandb_logs"     
+)
 
 # Function to give the activation function #
 def return_activation_function(activation : str = "ReLU"):
@@ -104,24 +114,103 @@ class CNN_(nn.Module):
             nn.Softmax(dim=1)
         )
 
+    def forward(self, x):
+        x = self.conv_blocks(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc_layers(x)
+        x = self.output_layer(x)
+        return x
+
+# Lightning module for fast training #
+class Lightning_CNN(L.LightningModule):
+    def __init__(self, config):
+        super().__init__()
+        self.save_hyperparameters()
+
+        # Define the model
+        self.model = CNN_(config=config)
+
+        # Defining the loss and optimizers
+        self.loss_fn = nn.CrossEntropyLoss()
+        self.optimizer = torch.optim.Adam(self.parameters(), lr = config["learning_rate"])
+
+        # Defining the metrics
+        self.prec_metric = Precision(task="multiclass", num_classes=config["num_classes"], average="weighted")
+
+    def forward(self, x):
+        return self.model(x)
+    
+    def training_step(self, batch, batch_idx):
+        input_, target_ = batch
+        output_ = self(input_)
+        # Finding the loss to backprop #
+        loss = self.loss_fn(output_, target_)
+        # Logging the metrics #
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        input_, target_ = batch
+        output_ = self(input_)
+        # Finding the loss to backprop #
+        loss = self.loss_fn(output_, target_)
+
+        output_pred = torch.argmax(output_, dim=1) 
+        precision = self.prec_metric(output_pred, target_)
+        # Logging the metrics #
+        self.log("val_loss", loss, prog_bar=True, logger=True, sync_dist=True)
+        self.log("val_acc", precision, prog_bar=True, logger=True, sync_dist=True)
+        return loss
+    
+    def test_step(self, batch, batch_idx):
+        input_, target_ = batch
+        output_ = self(input_)
+        # Finding the loss to backprop #
+        loss = self.loss_fn(output_, target_)
+        
+        output_pred = torch.argmax(output_, dim=1) 
+        precision = self.prec_metric(output_pred, target_)
+        # Logging the metrics #
+        self.log("test_loss", loss, prog_bar=True, logger=True, sync_dist=True)
+        self.log("test_acc", precision, prog_bar=True, logger=True, sync_dist=True)
+        return loss
+    
+    def configure_optimizers(self):
+        return self.optimizer
 
 # CONFIG to be used #
 config = {
     "no_of_conv_blocks" : 5,
-    "input_size" : 28,
-    "input_channels" : 1,
+    "input_size" : (400,300),
+    "input_channels" : 3,
     "num_classes" : 10,
-    "no_of_filters" : [8, 16, 34, 64, 128],
+    "no_of_filters" : [8, 16, 32, 64, 128],
     "conv_activation" : ["ReLU", "ReLU", "ReLU", "ReLU", "ReLU"],
     "filter_sizes" : [3, 3, 3, 3, 3], # Filter sizes has to be odd number
     "conv_strides" : [1, 1, 1, 1, 1],
     "conv_padding" : [1, 1, 1, 1, 1], # Use None if you want no reduction in size of image (stride = 1)
+    "max_pooling_kernel_size" : [2, 2, 2, 2, 2],
     "max_pooling_stride" : [2, 2, 2, 2, 2], # Use None if you dont want a max pooling between layers
     "batch_norm_conv" : False,
     "dropout_conv" : 0.2, # if dont need use 0
     "no_of_fc_layers" : 1, # Ignore the output layer
     "fc_activations" : ["ReLU"], 
-    "fc_neurons" : [512],
+    "fc_neurons" : [1024],
     "batch_norm_fc" : False,
     "dropout_fc" : 0.3, # if dont need use 0
+    "learning_rate" : 1e-3, 
 }
+
+# class to orient
+class OrientReshape:
+    def __init__(self, size = (400, 300)):
+        self.size = size
+    
+    def __call__(self, img):
+        # rotate the image to landscape if potrait #
+        if img.height > img.width:
+            img = img.rotate(90, expand = True)
+        # Reshape to target dimension #
+        img = F.resize(img, size = self.size)
+
+        return img
