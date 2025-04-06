@@ -233,3 +233,46 @@ data_transforms = {
         transforms.RandomErasing(p = 0.2, scale=(0.02, 0.075)),
     ])
 }
+
+def get_tv_dataloaders():
+    # Path to dataset #
+    data_dir = os.path.join(os.path.abspath(""), "nature_12K/inaturalist_12K/train/")
+    full_dataset = datasets.ImageFolder(root=data_dir, transform=data_transforms["orient_"])
+
+    # Getting labels and stratifies splitting #
+    labels = [sample[1] for sample in full_dataset.samples]
+    train_indices, val_indices = train_test_split(
+        np.arange(len(labels)),
+        test_size=0.2,
+        stratify=labels,
+        random_state=42
+    )
+
+    # Creating subsets #
+    train_dataset = Subset(full_dataset, train_indices)
+    val_dataset = Subset(full_dataset, val_indices)
+    # Applying transforms to datasets #
+    train_dataset.dataset.transform = data_transforms['train_']
+    val_dataset.dataset.transform = data_transforms["orient_"] 
+
+    batch_size = 32
+    num_workers = 4 # Adaptive number of workers
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=True,
+        drop_last=True  # Helps with batch norm stability
+    )
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True
+    )
+
+    return train_loader, val_loader
