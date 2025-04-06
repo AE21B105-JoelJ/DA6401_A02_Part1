@@ -65,8 +65,11 @@ class CNN_(nn.Module):
                 nn.BatchNorm2d(num_features=out_channels) if config["batch_norm_conv"] else nn.Identity(),
                 return_activation_function(activation=config["conv_activation"][block_no]),
                 nn.MaxPool2d(kernel_size=config["max_pooling_stride"][block_no]) if config["max_pooling_stride"][block_no] != None else nn.Identity(),
+                nn.Dropout(config["dropout_conv"]) if config["dropout_conv"]>0 else nn.Identity(),
             )
-        
+            # Appending the blocks to the total #
+            conv_blocks.append(block_add)
+
         # Converting the list to a sequential module #
         self.conv_blocks = nn.Sequential(*conv_blocks)
 
@@ -76,7 +79,30 @@ class CNN_(nn.Module):
         flat_size = len(dummy_out)
 
         # building the fc blocks #
+        fc_blocks = []
+        for block_no in range(config["no_of_fc_layers"]):
+            if block_no == 0:
+                in_channels = flat_size
+            else:
+                in_channels = config["fc_neurons"][block_no-1]
+            out_channels = config["fc_neurons"][block_no]
+            block_add = nn.Sequential(
+                nn.Linear(in_features=in_channels, out_features=out_channels),
+                nn.BatchNorm1d(out_channels) if config["batch_norm_fc"] else nn.Identity(),
+                return_activation_function(activation=config["fc_activations"][block_no]),
+                nn.Dropout(config["dropout_fc"]) if config["dropout_fc"]>0 else nn.Identity(),
+            )
+            # Appending to the fc final
+            fc_blocks.append(block_add)
 
+        # converting the list to a sequential module #
+        self.fc_layers = nn.Sequential(*fc_blocks)
+
+        # Output layer #
+        self.output_layer = nn.Sequential(
+            nn.Linear(in_features=config["fc_neurons"][-1], out_features=config["num_classes"]),
+            nn.Softmax(dim=1)
+        )
 
 
 
@@ -93,5 +119,10 @@ config = {
     "conv_padding" : [1, 1, 1, 1, 1], # Use None if you want no reduction in size of image (stride = 1)
     "max_pooling_stride" : [2, 2, 2, 2, 2], # Use None if you dont want a max pooling between layers
     "batch_norm_conv" : False,
-    "dropout_cnn" : 0.2, # if dont need use 0
+    "dropout_conv" : 0.2, # if dont need use 0
+    "no_of_fc_layers" : 1, # Ignore the output layer
+    "fc_activations" : ["ReLU"], 
+    "fc_neurons" : [512],
+    "batch_norm_fc" : False,
+    "dropout_fc" : 0.3, # if dont need use 0
 }
