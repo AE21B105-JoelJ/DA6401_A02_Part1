@@ -8,11 +8,13 @@ import torchvision.transforms.functional as F
 import lightning as L
 from typing import List
 from lightning.pytorch import Trainer
-from torchvision.datasets import MNIST
 from torchvision import transforms
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, Subset
 from lightning.pytorch.loggers import WandbLogger
 from torchmetrics import Precision
+from torchvision import datasets, transforms
+from sklearn.model_selection import train_test_split
+import os
 
 # Initializing wandb logger #
 wandb_logger = WandbLogger(
@@ -214,3 +216,20 @@ class OrientReshape:
         img = F.resize(img, size = self.size)
 
         return img
+    
+# Data augementation and transforms
+data_transforms = {
+    "orient_" : transforms.Compose([
+        OrientReshape(size=(400, 300)),
+        transforms.ToTensor()
+    ]),
+    "train_" : transforms.Compose([
+        transforms.RandomHorizontalFlip(p = 0.2),
+        transforms.RandomVerticalFlip(p = 0.2),
+        transforms.RandomRotation(degrees=15),
+        transforms.RandomAdjustSharpness(sharpness_factor=2, p=0.3),
+        transforms.GaussianBlur(kernel_size=3),
+        transforms.ToTensor(),
+        transforms.RandomErasing(p = 0.2, scale=(0.02, 0.075)),
+    ])
+}
