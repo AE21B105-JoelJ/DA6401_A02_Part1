@@ -105,7 +105,6 @@ class CNN_(nn.Module):
         )
 
 
-
 # CONFIG to be used #
 config = {
     "no_of_conv_blocks" : 5,
