@@ -172,9 +172,9 @@ class Lightning_CNN(L.LightningModule):
     def configure_optimizers(self):
         return self.optimizer
 
-# class to orient
+# class to orient (all images to landscape)
 class OrientReshape:
-    def __init__(self, size = (400, 300)):
+    def __init__(self, size = (256, 256)):
         self.size = size
     
     def __call__(self, img):
@@ -186,67 +186,64 @@ class OrientReshape:
 
         return img
     
+
 # Data augementation and transforms
-data_transforms = {
-    "orient_" : transforms.Compose([
-        OrientReshape(size=(400, 300)),
-        transforms.ToTensor()
-    ]),
-    "train_" : transforms.Compose([
-        transforms.RandomHorizontalFlip(p = 0.2),
-        transforms.RandomVerticalFlip(p = 0.2),
-        transforms.RandomRotation(degrees=15),
-        transforms.RandomAdjustSharpness(sharpness_factor=2, p=0.3),
-        transforms.GaussianBlur(kernel_size=3),
-        transforms.ToTensor(),
-        transforms.RandomErasing(p = 0.2, scale=(0.02, 0.075)),
-    ])
-}
+def create_data_augment_compose(input_size = (256, 256)):
+    data_transforms = {
+        "orient_" : transforms.Compose([
+            OrientReshape(size=input_size),
+            transforms.ToTensor()
+        ]),
+        "train_" : transforms.Compose([
+            transforms.RandomHorizontalFlip(p = 0.3),
+            transforms.RandomVerticalFlip(p = 0.3),
+            transforms.RandomRotation(degrees=15),
+            transforms.RandomAdjustSharpness(sharpness_factor=2, p=0.3),
+            transforms.GaussianBlur(kernel_size=3),
+            transforms.ToTensor(),
+            transforms.RandomErasing(p = 0.2, scale=(0.02, 0.075)),
+        ])
+    }
 
-def get_tv_dataloaders():
-    # Path to dataset #
-    data_dir = os.path.join(os.path.abspath(""), "nature_12K/inaturalist_12K/train/")
+    return data_transforms
+
+# Create a dataset with the image folders
+def create_dataset_image_folder(path_, input_size = (256,256)):
+    # Getting the transform
+    data_transforms = create_data_augment_compose(input_size)
+    # Path to dataset
+    data_dir = path_ #os.path.join(os.path.abspath(""), "nature_12K/inaturalist_12K/train/") 
+    # Creating dataset
     full_dataset = datasets.ImageFolder(root=data_dir, transform=data_transforms["orient_"])
-
-    # Getting labels and stratifies splitting #
+    # Getting the labels for stratified split
     labels = [sample[1] for sample in full_dataset.samples]
-    train_indices, val_indices = train_test_split(
-        np.arange(len(labels)),
-        test_size=0.2,
-        stratify=labels,
-        random_state=42
-    )
 
-    # Creating subsets #
+    # Stratified split
+    train_indices, val_indices = train_test_split(np.arange(len(labels)), test_size=0.2, stratify=labels, random_state=42)
+
+    # Create subsets
     train_dataset = Subset(full_dataset, train_indices)
     val_dataset = Subset(full_dataset, val_indices)
-    # Applying transforms to datasets #
-    train_dataset.dataset.transform = data_transforms['train_']
-    val_dataset.dataset.transform = data_transforms["orient_"] 
+    
+    return train_dataset, val_dataset, data_transforms
 
-    batch_size = 32
-    num_workers = 4 # Adaptive number of workers
+def create_dataloaders(batch_size, num_workers, train_dataset, val_dataset, is_data_aug, data_transforms):
+    # Transforming the dataset with transforms
+    if is_data_aug:
+        train_dataset.dataset.transform = data_transforms['train_']
+    else:
+        train_dataset.dataset.transform = data_transforms['orient_']
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        drop_last=True  # Helps with batch norm stability
-    )
+    val_dataset.dataset.transform = data_transforms['orient_']
 
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-    )
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers,drop_last=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     return train_loader, val_loader
 
-def get_test_dataloaders():
+def get_test_dataloader(path_, data_transforms):
     # Path to dataset #
-    data_dir = os.path.join(os.path.abspath(""), "nature_12K/inaturalist_12K/val/")
+    data_dir = path_ #os.path.join(os.path.abspath(""), "nature_12K/inaturalist_12K/val/")
     test_dataset = datasets.ImageFolder(root=data_dir, transform=data_transforms["orient_"])
 
     # Applying transforms to datasets #
@@ -261,5 +258,5 @@ def get_test_dataloaders():
         shuffle=False,
         num_workers=num_workers,
     )
-    
+
     return test_loader
