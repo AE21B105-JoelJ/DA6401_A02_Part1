@@ -4,12 +4,18 @@
 import argparse
 import sys
 import os
+import torch
 import lightning as L
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import List
 import wandb
+import source
+from lightning.pytorch import Trainer
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+from lightning.pytorch.loggers import WandbLogger
+
 
 # Command line arguments (DEFAULT : Best Hyperparameters)
 parser = argparse.ArgumentParser(description="Training a neural network with backpropagation !!!")
@@ -39,7 +45,7 @@ parser.add_argument("-data_aug", "--data_aug", type=bool, default=True, help="Wh
 args = parser.parse_args()
 
 # Building the config sent to the CNN for defining the architecture
-config_sample = {
+config = {
     "no_of_conv_blocks" : 5,
     "input_size" : (256,256),
     "input_channels" : 3,
@@ -65,3 +71,39 @@ config_sample = {
     "epochs" : args.epochs
 }
 
+# Cache emptying and setting precision
+torch.cuda.empty_cache()
+torch.set_float32_matmul_precision("medium")
+
+# Initializing wandb logger #
+wandb_logger = WandbLogger(
+    entity="A2_DA6401_DL",
+    project="Lightning_CNN",       
+)
+
+
+if __name__ == "__main__":
+    # Defining the dataloaders to be built
+    train_dataset, val_dataset, data_transforms = source.create_dataset_image_folder(path_=os.path.join(os.path.abspath(""), "nature_12K/inaturalist_12K/train/"), input_size=config["input_size"])
+    train_loader, val_loader = source.create_dataloaders(batch_size=config["batch_size"], num_workers=config["num_workers"], train_dataset=train_dataset, val_dataset=val_dataset, is_data_aug=config["data_aug"], data_transforms = data_transforms)
+
+    # Setting up the callbacks to be used
+    early_stopping = EarlyStopping('val_acc', patience=10, mode="max")
+    checkpoint_callback = ModelCheckpoint(monitor="val_acc", dirpath="checkpoints/", filename="best-checkpoint_2", save_top_k=1, mode="max")
+    # Defining the model
+    model = source.Lightning_CNN(config=config)
+    # Training the Model
+    trainer = Trainer(max_epochs=config["epochs"], precision=16, accelerator="auto", logger=wandb_logger, callbacks=[early_stopping, checkpoint_callback])
+    trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+
+    # Recalling the model weights from the callbacks
+    best_model_path = checkpoint_callback.best_model_path
+    model = source.Lightning_CNN.load_from_checkpoint(best_model_path)
+
+    # Getting the test dataloader
+    test_loader = source.get_test_dataloader(os.path.join(os.path.abspath(""), "nature_12K/inaturalist_12K/val/"), data_transforms)
+    # Prediction of the test data
+    trainer = Trainer(logger=False)
+    # Running prediction
+    predictions = trainer.test(model=model, dataloaders=test_loader)
+    
