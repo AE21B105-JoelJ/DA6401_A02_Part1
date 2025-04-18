@@ -16,14 +16,6 @@ from torchvision import datasets, transforms
 from sklearn.model_selection import train_test_split
 import os
 
-# Initializing wandb logger #
-wandb_logger = WandbLogger(
-    project="A1_DA6401_DL",       
-    name="Check",        
-    log_model="all",            
-    save_dir="./wandb_logs"     
-)
-
 # Function to give the activation function #
 def return_activation_function(activation : str = "ReLU"):
     possible_activations = ["ReLU", "Mish", "GELU", "SELU", "SiLU", "LeakyReLU" ]
@@ -180,29 +172,6 @@ class Lightning_CNN(L.LightningModule):
     def configure_optimizers(self):
         return self.optimizer
 
-# CONFIG to be used #
-config = {
-    "no_of_conv_blocks" : 5,
-    "input_size" : (400,300),
-    "input_channels" : 3,
-    "num_classes" : 10,
-    "no_of_filters" : [8, 16, 32, 64, 128],
-    "conv_activation" : ["ReLU", "ReLU", "ReLU", "ReLU", "ReLU"],
-    "filter_sizes" : [3, 3, 3, 3, 3], # Filter sizes has to be odd number
-    "conv_strides" : [1, 1, 1, 1, 1],
-    "conv_padding" : [1, 1, 1, 1, 1], # Use None if you want no reduction in size of image (stride = 1)
-    "max_pooling_kernel_size" : [2, 2, 2, 2, 2],
-    "max_pooling_stride" : [2, 2, 2, 2, 2], # Use None if you dont want a max pooling between layers
-    "batch_norm_conv" : False,
-    "dropout_conv" : 0.2, # if dont need use 0
-    "no_of_fc_layers" : 1, # Ignore the output layer
-    "fc_activations" : ["ReLU"], 
-    "fc_neurons" : [1024],
-    "batch_norm_fc" : False,
-    "dropout_fc" : 0.3, # if dont need use 0
-    "learning_rate" : 1e-3, 
-}
-
 # class to orient
 class OrientReshape:
     def __init__(self, size = (400, 300)):
@@ -263,7 +232,6 @@ def get_tv_dataloaders():
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        pin_memory=True,
         drop_last=True  # Helps with batch norm stability
     )
 
@@ -272,7 +240,26 @@ def get_tv_dataloaders():
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True
     )
 
     return train_loader, val_loader
+
+def get_test_dataloaders():
+    # Path to dataset #
+    data_dir = os.path.join(os.path.abspath(""), "nature_12K/inaturalist_12K/val/")
+    test_dataset = datasets.ImageFolder(root=data_dir, transform=data_transforms["orient_"])
+
+    # Applying transforms to datasets #
+    test_dataset.dataset.transform = data_transforms["orient_"] 
+
+    batch_size = 20
+    num_workers = 4 # Adaptive number of workers
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+    )
+    
+    return test_loader
