@@ -25,9 +25,9 @@ parser.add_argument("-we", "--wandb_entity", type=str, default="myname", help="W
 parser.add_argument("-e", "--epochs", type=int, default=50, help = "Number of epochs to train the model")
 parser.add_argument("-b", "--batch_size", type=int, default=32, help="Batch size used to train the network")
 parser.add_argument("-num_workers", "--num_workers", type=int, default=2, help="Parallel workers used to feed data")
-parser.add_argument("-conv_num_filters", "--conv_num_filters", type=List, default=[5, 5, 5, 3, 3], help="num filters array of 5 (5 conv layers)")
+parser.add_argument("-conv_num_filters", "--conv_num_filters", type=List, default=[128, 128, 128, 256, 256], help="num filters array of 5 (5 conv layers)")
 parser.add_argument("-conv_activation", "--conv_activation", type=str, default="GELU", help="filter sizes array of 5 (5 conv layers)")
-parser.add_argument("-conv_filter_size", "--conv_filter_size", type=List, default=[128, 128, 128, 256, 256], help="filter sizes array of 5 (5 conv layers)")
+parser.add_argument("-conv_filter_size", "--conv_filter_size", type=List, default=[5, 5, 5, 3, 3], help="filter sizes array of 5 (5 conv layers)")
 parser.add_argument("-conv_stride", "--conv_stride", type=List, default=[1, 1, 1, 1, 1], help="strides of the filters 5 (5 conv layers)")
 parser.add_argument("-conv_padding", "--conv_padding", type=List, default=[None, None, None, None, None], help="padding sizes array of 5 (None meaning output size = input size)")
 parser.add_argument("-conv_max_pool_size", "--conv_max_pool_size", type=List, default=[5, 5, 5, 3, 2], help="max pooling filter sizes array of 5 (5 conv layers)")
@@ -35,7 +35,7 @@ parser.add_argument("-conv_max_pool_stride", "--conv_max_pool_stride", type=List
 parser.add_argument("-conv_batch_norm", "--conv_batch_norm", type=bool, default=True, help="Whether to apply batch norm to the convolutional layers")
 parser.add_argument("-conv_dropout", "--conv_dropout", type=float, default=0.1, help="Dropout to apply at the convolutional layers before activation")
 parser.add_argument("-fc_batch_norm", "--fc_batch_norm", type=bool, default=True, help="Whether to apply batch norm to the fc layers")
-parser.add_argument("-no_of_fc_layers", "no_of_fc_layers", type=int, default=1, help="Number of fc layers")
+parser.add_argument("-no_of_fc_layers", "--no_of_fc_layers", type=int, default=1, help="Number of fc layers")
 parser.add_argument("-no_of_fc_neurons", "--no_of_fc_neurons", type=List, default=[512], help="Number of neurons in the fc layer")
 parser.add_argument("-fc_activations", "--fc_activations", type=List, default=["Mish"], help="Activation of the fc layers")
 parser.add_argument("-fc_dropout", "--fc_dropout", type=float, default=0.2, help="Dropout to applu at the convolutional layers before activation")
@@ -77,8 +77,8 @@ torch.set_float32_matmul_precision("medium")
 
 # Initializing wandb logger #
 wandb_logger = WandbLogger(
-    entity="A2_DA6401_DL",
-    project="Lightning_CNN",       
+    entity=args.wandb_entity,
+    project=args.wandb_project,       
 )
 
 
