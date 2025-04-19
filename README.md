@@ -55,5 +55,20 @@ The supporting arguments of the script with the default values are given below,
 ## Extras_ folder
 This folder contains the scripts for the best run of the part-01 and the sweep files which was used to run the sweep (do check the paths of the folders similar to the previous sections if running the scripts)
 
+## Training and evaluvation of the model
+From the passed/defaults arguments from the argument parser the config dictionary is built which can be seen in the train script
+
+![Screenshot From 2025-04-19 23-02-37](https://github.com/user-attachments/assets/c7b146b4-a7c2-4b03-91bf-a42894510cab)
+
+Now the main part of the code is as follows,
+
+![Screenshot From 2025-04-19 22-38-57](https://github.com/user-attachments/assets/76076414-bc73-40df-8542-cdfd8ca9a6c1)
+
+- First two lines is getting the dataloaders (train and val) ready, we pass the path_ of the train folder of the dataset as the argument and the input size as seen in the screenshot of the code. The first line returns the datasets. The second function takes the datasets and the transformations returned from the first fucntion and some other required parameters to build the dataloaders.
+- In the next two lines the callbacks for early stopping and saving checkpoints is defined
+- Then the lightning module is defined with the convolutional model being defined inside the lightning module and the trainer is trainer for the given configurations for a given number of epochs. The validation and training losses and accuracies are logged in the wandb.
+- Then the last 4 lines of the code are simple for testing the model, load the best model, create the test loader by passing the path_ for the val folder of the dataset, then with the trainer defined for the loaded model uses test() method to evaluvate the model on the test dataset.
+
+
   
 
